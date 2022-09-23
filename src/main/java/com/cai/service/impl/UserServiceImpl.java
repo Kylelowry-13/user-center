@@ -2,6 +2,8 @@ package com.cai.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.cai.common.ErrorCode;
+import com.cai.exception.BusinessException;
 import com.cai.model.domain.User;
 import com.cai.service.UserService;
 import com.cai.mapper.UserMapper;
@@ -41,16 +43,16 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
     public long userRegister(String userName, String loginId, String userPassword, String checkPassword) {
         //校验昵称是否是2-8位
         if (userName.length() < 2 || userName.length() > 8){
-            return -1;
+            throw new BusinessException(ErrorCode.PARAMS_ERROR,"昵称长度不符合要求,正确长度为2-8位");
         }
         //校验密码是否在6-20位
         if (userPassword.length() <6 || userPassword.length() > 20){
-            return -1;
+            throw new BusinessException(ErrorCode.PARAMS_ERROR,"密码长度不符合要求,正确长度应为6-20位");
         }
-//        //校验登陆账号是否在6-20位
-//        if (user.getLoginId().length() <6 || user.getLoginId().length() > 20){
-//            return -1;
-//        }
+        //校验登陆账号是否在6-20位
+        if (loginId.length() <6 || loginId.length() > 20){
+            throw new BusinessException(ErrorCode.PARAMS_ERROR,"账号长度不符合要求,正确长度应为6-20位");
+        }
 //        //校验邮箱格式是否正确
 //        if (!CheckCharacter.checkEmail(user.getEmail())){
 //            return -1;
@@ -61,31 +63,31 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
 //        }
         //账号不能包含特殊符号
         if (CheckCharacter.checkLoginId(loginId)){
-            return -1;
+            throw new BusinessException(ErrorCode.PARAMS_ERROR,"账号不能包含特殊符号,仅支持数字、字母、下划线(_)");
         }
 
         //昵称不能包含特殊符号
         if (CheckCharacter.checkLoginId(userName)){
-            return -1;
+            throw new BusinessException(ErrorCode.PARAMS_ERROR,"昵称不能包含特殊符号,仅支持数字、字母、下划线(_)");
         }
 
         //验证两次密码是否一致
         if (!userPassword.equals(checkPassword)){
-            return -1;
+            throw new BusinessException(ErrorCode.PARAMS_ERROR,"两次密码不一致");
         }
         //昵称不能重复
         QueryWrapper<User> queryWrapper = new QueryWrapper<>();
         queryWrapper.eq("user_name", userName);
         int count = this.count(queryWrapper);
         if (count > 0 ){
-            return -1;
+            throw new BusinessException(ErrorCode.PARAMS_ERROR,"昵称已被注册");
         }
         //登录账号不能重复
         QueryWrapper<User> queryWrapper2 = new QueryWrapper<>();
         queryWrapper2.eq("login_id", loginId);
         int count2 = this.count(queryWrapper2);
         if (count2 > 0 ){
-            return -1;
+            throw new BusinessException(ErrorCode.PARAMS_ERROR,"账号已被注册");
         }
 
 
@@ -113,19 +115,19 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
     public User login(String loginId, String userPassword, HttpServletRequest request) {
         //校验账号密码是否为空
         if (loginId == null || userPassword == null) {
-            return null;
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
         //校验登陆账号是否在6-20位
         if (loginId.length() <6 || loginId.length() > 20){
-            return null;
+            throw new BusinessException(ErrorCode.PARAMS_ERROR,"账号长度不符合要求,正确长度应为6-20位");
         }
         //校验密码是否在6-20位
         if (userPassword.length() <6 || userPassword.length() > 20){
-            return null;
+            throw new BusinessException(ErrorCode.PARAMS_ERROR,"密码长度不符合要求,正确长度应为6-20位");
         }
         //账号不能包含特殊符号
         if (CheckCharacter.checkLoginId(loginId)){
-            return null;
+            throw new BusinessException(ErrorCode.PARAMS_ERROR,"账号不能包含特殊符号,仅支持数字、字母、下划线(_)");
         }
 
         String encryptPassword = DigestUtils.md5DigestAsHex((SALT + userPassword).getBytes());
@@ -136,7 +138,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         queryWrapper.eq("user_password",encryptPassword);
         User user = userMapper.selectOne(queryWrapper);
         if (user == null){
-            return null;
+            throw new BusinessException(ErrorCode.PARAMS_ERROR,"错误的账号或密码");
         }
         //将用户信息脱敏
         User safetyUser = getSafetyUser(user);
@@ -168,6 +170,18 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         safetyUser.setIsManager(originUser.getIsManager());
 
         return safetyUser;
+    }
+
+    /**
+     * 用户注销
+     * @param request
+     * @return
+     */
+    @Override
+    public int userLogout(HttpServletRequest request) {
+        //移除用户登录态
+        request.getSession().removeAttribute(USER_LOGIN_STATE);
+        return 1;
     }
 
 
